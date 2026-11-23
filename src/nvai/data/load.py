@@ -16,6 +16,7 @@ def _read(source: str, name: str) -> pd.DataFrame:
 
 def crsp_returns(col: str = "ret") -> pd.DataFrame:
     df = _read("wrds", "crsp_daily")
+    df[col] = df[col].astype(float)          # WRDS returns nullable Float64; use numpy floats
     return df.pivot_table(index="date", columns="ticker", values=col).sort_index()
 
 
@@ -93,7 +94,7 @@ def borrow_fees(field: str = "indicativefee", fill_default: bool = False) -> pd.
     df = df.assign(has_fee=df["indicativefee"].notna())
     df = (df.sort_values(["has_fee", "lendablevalue"], na_position="first")
             .drop_duplicates(["ticker", "datadate"], keep="last"))
-    wide = df.pivot(index="datadate", columns="ticker", values=field).sort_index()
+    wide = df.pivot(index="datadate", columns="ticker", values=field).sort_index().astype(float)
     wide.index.name = "date"
     wide = _mask_predecessors(wide)
     if fill_default:

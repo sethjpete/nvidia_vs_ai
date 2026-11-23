@@ -14,8 +14,8 @@ data-free:   ## yfinance prices, Ken French / FRED risk-free rate
 data-wrds:   ## CRSP daily, Markit borrow fees, ETF Global holdings, OptionMetrics borrow rates
 	$(PY) scripts/pull_data.py wrds
 
-notebook:    ## run the research notebook end to end (writes research/*.ipynb and figures)
-	cd research && ../.venv/bin/jupytext --to ipynb --execute 01_hedge_ratios.py
+notebook:    ## run the research notebooks end to end (writes research/*.ipynb and figures)
+	cd research && for f in 0*.py; do ../.venv/bin/jupytext --to ipynb --execute $$f || exit 1; done
 
 test:
 	$(PY) -m pytest -q
