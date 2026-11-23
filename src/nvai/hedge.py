@@ -79,3 +79,50 @@ def max_drawdown(pnl: pd.Series) -> float:
     """Largest peak-to-trough fall of a cumulative $ P&L path (positive number)."""
     cum = pnl.fillna(0).cumsum()
     return float((cum.cummax() - cum).max())
+
+
+def monthly_reset_backtest(xs_long: pd.Series, g_long: pd.Series, xs_short: pd.Series,
+                           g_short: pd.Series, L_tgt: pd.Series, S_tgt: pd.Series,
+                           cost_fn) -> pd.DataFrame:
+    """Daily $ P&L of a long/short book whose legs are reset to target notionals on the
+    first trading day of each month and drift with prices in between.
+
+    xs_*   : daily excess return earned per $ of notional (short leg: what the short PAYS,
+             e.g. QQQ excess return + borrow fee, or the futures return)
+    g_*    : daily return the notional drifts with (price/total return of the instrument)
+    L_tgt, S_tgt : target $ notionals, read on each month's first day (index = days)
+    cost_fn(prev_L, prev_S, tgt_L, tgt_S, day) -> $ cost charged on the reset day
+    Returns columns pnl, long, short (notional at the start of each day).
+    """
+    idx = L_tgt.dropna().index.intersection(S_tgt.dropna().index)
+    out, prev_L, prev_S = [], 0.0, 0.0
+    for _, d in pd.Series(idx, index=idx).groupby(idx.to_period("M")):
+        d = d.index
+        tL, tS = float(L_tgt.loc[d[0]]), float(S_tgt.loc[d[0]])
+        Lt = tL * (1 + g_long.loc[d]).cumprod().shift(1, fill_value=1.0)
+        St = tS * (1 + g_short.loc[d]).cumprod().shift(1, fill_value=1.0)
+        pnl = Lt * xs_long.loc[d] - St * xs_short.loc[d]
+        pnl.iloc[0] -= cost_fn(prev_L, prev_S, tL, tS, d[0])
+        out.append(pd.DataFrame({"pnl": pnl, "long": Lt, "short": St}))
+        prev_L = Lt.iat[-1] * (1 + g_long.loc[d[-1]])
+        prev_S = St.iat[-1] * (1 + g_short.loc[d[-1]])
+    return pd.concat(out)
+
+
+def perf_stats(p: pd.Series, equity: float, ann: int = 252) -> pd.Series:
+    """Summary stats for a daily $ P&L series measured over T-bills."""
+    m = p.groupby(p.index.to_period("M")).sum()
+    cum = p.cumsum()
+    dd = cum - cum.cummax()
+    under = dd < 0
+    runs = under.groupby((~under).cumsum()).sum()
+    down = p[p < 0]
+    return pd.Series({
+        "annual P&L $": ann * p.mean(), "annual % of equity": 100 * ann * p.mean() / equity,
+        "vol $/yr": np.sqrt(ann) * p.std(), "Sharpe": np.sqrt(ann) * p.mean() / p.std(),
+        "Sortino": np.sqrt(ann) * p.mean() / np.sqrt((down ** 2).sum() / len(p)),
+        "max drawdown $": dd.min(), "max drawdown % equity": 100 * dd.min() / equity,
+        "worst day $": p.min(), "worst day": p.idxmin().date(),
+        "worst month $": m.min(), "worst month": str(m.idxmin()),
+        "months up %": 100 * (m > 0).mean(), "longest drawdown (days)": int(runs.max()),
+    })

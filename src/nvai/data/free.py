@@ -113,7 +113,22 @@ def pull_tbill() -> pd.DataFrame:
     return df
 
 
+def pull_index_futures() -> pd.DataFrame:
+    """Nasdaq-100 index (^NDX) and continuous front-month futures (NQ=F, MNQ=F) closes.
+    The continuous futures series jump at each quarterly roll."""
+    import yfinance as yf
+
+    px = yf.download(["^NDX", "NQ=F", "MNQ=F"], start=settings()["sample"]["start"],
+                     auto_adjust=False, progress=False)["Close"]
+    px.columns = [c.replace("^", "").replace("=F", "") for c in px.columns]
+    px.index = pd.to_datetime(px.index).tz_localize(None)
+    px.reset_index(names="date").to_parquet(raw_dir("free") / "ndx_futures.parquet",
+                                            index=False)
+    return px
+
+
 def pull_all() -> None:
     print("[free] yfinance"); pull_yfinance()
     print("[free] Ken French daily RF"); pull_french()
     print("[free] 3m T-bill"); pull_tbill()
+    print("[free] NDX and Nasdaq futures"); pull_index_futures()

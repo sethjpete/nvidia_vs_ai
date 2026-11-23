@@ -235,45 +235,18 @@ carry.style.format("{:,.0f}")
 
 # %%
 def backtest(h_series, hedged=True):
-    """Daily $ P&L over T-bills for the monthly-reset book. Returns a DataFrame."""
-    idx = h_series.dropna().index
-    out = []
-    prev_L = prev_S = 0.0
-    for _, days in pd.Series(idx, index=idx).groupby(idx.to_period("M")):
-        d = days.index
-        h = h_series.loc[d[0]] if hedged else 0.0
-        tgt_L, tgt_S = L, h * L
-        trade = abs(tgt_L - prev_L) + abs(tgt_S - prev_S)
-        gl = (1 + ret.NVDA.loc[d]).cumprod()
-        gs = (1 + ret.QQQ.loc[d]).cumprod()
-        Lt = tgt_L * gl.shift(1, fill_value=1.0)              # notional at start of day
-        St = tgt_S * gs.shift(1, fill_value=1.0)
-        pnl = (Lt * xn.loc[d] - St * (xq.loc[d] + fee.loc[d] / ANN))
-        pnl.iloc[0] -= TCOST * trade
-        out.append(pd.DataFrame({"pnl": pnl, "short": St, "long": Lt}))
-        prev_L, prev_S = Lt.iat[-1] * (1 + ret.NVDA.loc[d[-1]]), St.iat[-1] * (
-            1 + ret.QQQ.loc[d[-1]])
-    df = pd.concat(out)
+    """Daily $ P&L over T-bills for the monthly-reset book (helper in nvai.hedge)."""
+    h = h_series.dropna() * (1.0 if hedged else 0.0)
+    df = hg.monthly_reset_backtest(
+        xs_long=xn, g_long=ret.NVDA, xs_short=xq + fee / ANN, g_short=ret.QQQ,
+        L_tgt=pd.Series(L, index=h.index), S_tgt=h * L,
+        cost_fn=lambda pL, pS, tL, tS, d: TCOST * (abs(tL - pL) + abs(tS - pS)))
     df["pnl_norebate"] = df.pnl - 1.5 * df.short * rf.loc[df.index]
     return df
 
 
 def stats(p, equity=regT):
-    m = p.groupby(p.index.to_period("M")).sum()
-    cum = p.cumsum()
-    dd = cum - cum.cummax()
-    under = dd < 0
-    runs = under.groupby((~under).cumsum()).sum()
-    down = p[p < 0]
-    return pd.Series({
-        "annual P&L $": ANN * p.mean(), "annual % of equity": 100 * ANN * p.mean() / equity,
-        "vol $/yr": np.sqrt(ANN) * p.std(), "Sharpe": np.sqrt(ANN) * p.mean() / p.std(),
-        "Sortino": np.sqrt(ANN) * p.mean() / np.sqrt((down ** 2).sum() / len(p)),
-        "max drawdown $": dd.min(), "max drawdown % equity": 100 * dd.min() / equity,
-        "worst day $": p.min(), "worst day": p.idxmin().date(),
-        "worst month $": m.min(), "worst month": str(m.idxmin()),
-        "months up %": 100 * (m > 0).mean(), "longest drawdown (days)": runs.max(),
-    })
+    return hg.perf_stats(p, equity)
 
 
 start = h_shrunk.dropna().index[0]
