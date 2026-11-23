@@ -1,0 +1,39 @@
+# Project settings. Everything reads this through nvai.config.settings().
+
+[sample]
+start = "2019-01-01"
+end = "today"            # "today" or an ISO date
+
+[universe]
+target = "NVDA"
+market = "SPY"           # reference only, not part of any AI basket
+stocks = ["AMD", "AVGO", "TSM", "MU", "MRVL", "ASML", "QCOM", "INTC", "ARM",
+          "MSFT", "GOOGL", "AMZN", "META", "ORCL", "SMCI", "DELL", "ANET", "VRT"]
+etfs = ["QQQ", "SMH", "SOXX", "XLK", "IGV", "BOTZ", "AIQ"]
+
+# Returns before these dates belong to a predecessor (VRT: GS Acquisition Holdings SPAC)
+# and are masked by nvai.data.load.returns(). ARM simply starts at its 2023-09-14 IPO.
+[universe.first_date]
+VRT = "2020-02-07"
+
+# Candidate hedge baskets. Each ETF is also a one-name basket (added in config.py).
+[baskets]
+semis_ex_nvda = ["AMD", "AVGO", "TSM", "MU", "MRVL", "ASML", "QCOM", "INTC", "ARM"]
+hyperscalers = ["MSFT", "GOOGL", "AMZN", "META", "ORCL"]
+ai_infra = ["AVGO", "MRVL", "ANET", "SMCI", "DELL", "VRT", "TSM", "MU"]
+broad_ai = ["AMD", "AVGO", "TSM", "MU", "MRVL", "ASML", "QCOM", "INTC", "ARM",
+            "MSFT", "GOOGL", "AMZN", "META", "ORCL", "SMCI", "DELL", "ANET", "VRT"]
+
+[costs]
+default_borrow_fee = 0.0025   # annualized, used when Markit has no fee for a name-day
+
+[wrds]
+legacy_end_year = 2024        # crsp.dsf stops at 2024; later years come from crsp.dsf_v2
+# Markit MSF: US-listed common stocks are in the "amer" tables; ETFs and ADRs (TSM, ASML,
+# ARM, all the ETFs) are only in the "other" tables (market areas "US ETF", "TW ADR", ...).
+markit_tables = { markit_msf_analytics_eqty_amer = "amereqty", markit_msf_analytics_eqty_other = "othereqty" }
+
+[sources]
+french_base = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
+fred_csv = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}"
+fred_api = "https://api.stlouisfed.org/fred/series/observations"
