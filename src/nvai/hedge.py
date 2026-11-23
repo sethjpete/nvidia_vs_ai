@@ -126,3 +126,24 @@ def perf_stats(p: pd.Series, equity: float, ann: int = 252) -> pd.Series:
         "worst month $": m.min(), "worst month": str(m.idxmin()),
         "months up %": 100 * (m > 0).mean(), "longest drawdown (days)": int(runs.max()),
     })
+
+
+def two_factor_betas(y: pd.Series, f: pd.Series, s: pd.Series, window: int | None = 252,
+                     min_periods: int | None = None) -> pd.DataFrame:
+    """Rolling (or expanding, window=None) two-factor betas with an orthogonalized factor.
+
+    Model: y = a + b_f * f + b_s * s_perp + e,  s_perp = s - c * f,  c = beta(s on f).
+    Because s_perp is orthogonal to f in the same window, b_f equals the one-factor beta of
+    y on f, and b_s is the extra exposure to the part of s that f does not explain.
+    The tradeable hedge is: short b_s of s and short (b_f - b_s * c) of f, per $1 of y.
+    """
+    def roll(a):
+        if window is None:
+            return a.expanding(min_periods or 252)
+        return a.rolling(window, min_periods=min_periods or int(0.8 * window))
+    var_f, var_s = roll(f).var(), roll(s).var()
+    cov_yf, cov_ys, cov_sf = roll(y).cov(f), roll(y).cov(s), roll(s).cov(f)
+    c = cov_sf / var_f
+    b_f = cov_yf / var_f
+    b_s = (cov_ys - c * cov_yf) / (var_s - c ** 2 * var_f)
+    return pd.DataFrame({"b_f": b_f, "b_s": b_s, "c": c, "f_hedge": b_f - b_s * c})

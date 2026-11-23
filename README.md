@@ -14,8 +14,10 @@ src/nvai/data/free.py     yfinance prices, T-bill and Ken French risk-free rate
 src/nvai/data/wrds_pull.py CRSP daily, Markit borrow fees, ETF Global holdings, OptionMetrics borrow
 src/nvai/data/load.py     loaders: wide return panel (CRSP, else yfinance), fees, holdings, rf
 scripts/pull_data.py      `free` / `wrds` entry point
-research/                 ALL research code: 01_hedge_ratios.py (jupytext, # %% cells),
-                          its executed .ipynb, and figures/
+research/                 ALL research code (jupytext .py + executed .ipynb, figures/):
+                          01 data checks, 02 hedge ratios and sizing, 03 NVDA/QQQ trade
+                          explained, 04 MNQ futures hedge, 05 MNQ + semis overlay
+src/nvai/hedge.py         shared helpers: baskets, betas, VaR, monthly-reset backtest
 ```
 
 ## Setup
