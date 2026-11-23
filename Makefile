@@ -1,6 +1,6 @@
 PY ?= .venv/bin/python
 
-.PHONY: install data data-free data-wrds notebook test
+.PHONY: install data data-free data-wrds notebook test track
 
 install:     ## venv + editable install
 	python3 -m venv .venv
@@ -15,7 +15,10 @@ data-wrds:   ## CRSP daily, Markit borrow fees, ETF Global holdings, OptionMetri
 	$(PY) scripts/pull_data.py wrds
 
 notebook:    ## run the research notebooks end to end (writes research/*.ipynb and figures)
-	cd research && for f in 0*.py; do ../.venv/bin/jupytext --to ipynb --execute $$f || exit 1; done
+	cd research && for f in 0[1-5]*.py 06_live_tracker.py; do ../.venv/bin/jupytext --to ipynb --execute $$f || exit 1; done
 
 test:
 	$(PY) -m pytest -q
+
+track:       ## live P&L tracker for the open trade (config/trade.toml)
+	$(PY) research/06_live_tracker.py
